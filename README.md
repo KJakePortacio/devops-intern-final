@@ -44,7 +44,7 @@ The observed health-check output was `PASS: http://localhost:8080 returned HTTP 
 
 ## Task 1 — Source control
 
-The project was developed incrementally on the `feature/project-scaffold` branch with conventional commit messages. The pull request, merge to `main`, and `v1.0.0` tag must be completed before submission; record the PR link and tag here when available.
+The project was developed incrementally on the `feature/project-scaffold` branch with conventional commit messages. [Pull request #1](https://github.com/KJakePortacio/devops-intern-final/pull/1) was merged into `main`. The final `v1.0.0` tag remains to be created after the documentation is complete.
 
 ## Task 2 — Linux scripts
 
@@ -91,17 +91,20 @@ uid=101(nginx) gid=101(nginx) groups=101(nginx)
 
 `.github/workflows/ci.yml` defines lint, build, test, and publish jobs. Lint runs ShellCheck and Hadolint. Build passes `BUILD_SHA` from the GitHub commit and saves the image for the test and publish jobs. Test waits for the container health check and calls `scripts/healthcheck.sh`. Publish runs only on pushes to `main`, uses `GITHUB_TOKEN` with package write permission, and pushes the commit-SHA and `latest` tags to GHCR.
 
-The first GitHub Actions run and GHCR publication are pending. After opening the pull request, record the Actions run link and successful result here.
+The pull request checks passed for lint, image build, and container test. The push to `main` also completed successfully, including publishing both the commit-SHA and `latest` tags to GHCR. The deployed image tag was `113d159a86fdc88d8bb886f694733638a92e8b1e`.
 
 ## Task 5 — Nomad deployment
 
 The job specification is [nomad/nginx-app.nomad.hcl](nomad/nginx-app.nomad.hcl). It defines one service group and Docker task, a dynamically allocated `http` port mapped to container port 8080, Consul registration with an HTTP `/healthz` check, restart and reschedule policies, and rolling updates with automatic revert. CPU and memory are set to the required 100 MHz and 64 MB.
 
-Validate and plan the job with:
+Validate, plan, and deploy the job with the published commit-SHA tag:
 
 ```bash
 nomad job validate nomad/nginx-app.nomad.hcl
-nomad job plan -var="image_tag=REPLACE_WITH_IMAGE_SHA" nomad/nginx-app.nomad.hcl
+nomad job plan -var="image_tag=113d159a86fdc88d8bb886f694733638a92e8b1e" nomad/nginx-app.nomad.hcl
+nomad job run -check-index 0 -var="image_tag=113d159a86fdc88d8bb886f694733638a92e8b1e" nomad/nginx-app.nomad.hcl
+nomad job status nginx-app
+nomad alloc status 08e49e3d
 ```
 
 Observed validation result:
@@ -110,7 +113,23 @@ Observed validation result:
 Job validation successful
 ```
 
-The plan reported that all tasks were successfully allocated. Replace the placeholder with the published image SHA before running the job. Record the `nomad job run`, `nomad job status`, and healthy allocation output after deployment.
+The plan reported that all tasks were successfully allocated. Deployment `ed9bb92c` completed successfully with 1 of 1 allocations healthy. Job status was `running`; allocation `08e49e3d` was `running` and healthy. Nomad assigned host port `26638`, mapped to container port `8080`.
+
+Verify the application and Consul check:
+
+```bash
+./scripts/healthcheck.sh http://127.0.0.1:26638
+curl -i http://127.0.0.1:26638/healthz
+curl -sS 'http://localhost:8500/v1/health/service/nginx-app?passing' | python3 -m json.tool
+```
+
+Observed health-check output:
+
+```text
+PASS: http://127.0.0.1:26638 returned HTTP 200
+```
+
+The `/healthz` request returned HTTP 200 with body `ok`. Consul reported the `http-health` check as `passing`, with output `HTTP GET http://127.0.0.1:26638/healthz: 200 OK`.
 
 ## Task 6 — Log aggregation
 
@@ -133,4 +152,4 @@ The query `{container="nginx-slim-check"} |= "404"` returned four NGINX access l
 - Nomad and Consul are running as single-node development agents; this is not a production cluster.
 - Grafana uses a local assessment password and local Docker volumes.
 - Promtail 3.6.4 is pinned to meet the assessment requirement. Promtail reached end of life in March 2026; a maintained deployment should migrate log collection to Grafana Alloy.
-- The pull request, first green CI run, GHCR publication, healthy Nomad allocation, and `v1.0.0` release tag remain to be completed and recorded.
+- The `v1.0.0` release tag remains to be created after the final documentation update.
