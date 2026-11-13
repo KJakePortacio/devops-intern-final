@@ -8,6 +8,7 @@ job "nginx-app" {
   type        = "service"
 
   group "web" {
+    shutdown_delay = "5s"
     count = 1
 
     network {
