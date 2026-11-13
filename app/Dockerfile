@@ -7,7 +7,7 @@ COPY index.html styles.css /usr/share/nginx/html/
 
 RUN sed -i "s/__BUILD_SHA__/${BUILD_SHA}/g" /usr/share/nginx/html/index.html
 
-USER nginx
+USER 101:101
 
 EXPOSE 8080
 
